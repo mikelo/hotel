@@ -14,10 +14,10 @@ public class CounterBean {
         return counter.get();
     }
 
-    @Scheduled(every="10s")     
-    void increment() {
-        counter.incrementAndGet(); 
-    }
+    // @Scheduled(every="10s")     
+    // void increment() {
+    //     counter.incrementAndGet(); 
+    // }
 
     @Scheduled(cron="0 15 10 * * ?") 
     void cronJob(ScheduledExecution execution) {
