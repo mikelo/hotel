@@ -1,4 +1,7 @@
-# Quarkus instrumentation using opentelemetry and Instana
+<img src=https://github.com/mikelo/hotel/assets/1353545/5902dc01-ba2c-44fc-94c7-4e612186047e width=100> + <img src=https://github.com/mikelo/hotel/assets/1353545/ee73239a-1da6-480e-b833-453d83dfd9f2 width=100> + <img src=https://github.com/mikelo/hotel/assets/1353545/fe004468-98b7-465a-8933-c7a3e17ccbb6 width=100>
+# Quarkus instrumentation using Opentelemetry and Instana 
+
+
 
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
