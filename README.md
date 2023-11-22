@@ -6,17 +6,17 @@ If you want to learn more about Quarkus, please visit its website: https://quark
 
 ## Running the application in dev mode
 
-You can run your application in dev mode that enables live coding using:
+You can run your application in dev mode that enables live coding using quarkus CLI:
 ```shell script
 quarkus dev
 ```
+> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8080/q/dev/.
 
-or deploy automagically to a running openshift cluster:
+or deploy to a running openshift cluster:
 ```shell script
 quarkus build -Dquarkus.kubernetes.deploy=true -Dquarkus.kubernetes-client.trust-certs=true
 ```
-
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8080/q/dev/.
+I used https://github.com/instana/opentelemetry-demo to test out components
 
 ## Packaging and running the application
 
