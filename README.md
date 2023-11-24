@@ -15,6 +15,17 @@ quarkus dev
 ```
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8080/q/dev/.
 
+to test locally you can edit [application.properties](src/main/resources/application.properties) such that:
+```shell script
+quarkus.otel.exporter.otlp.traces.endpoint=http://localhost:4317
+# quarkus.otel.exporter.otlp.traces.endpoint=http://instana-agent.instana-agent.svc:4317
+```
+and then spin up an OTEL collector:
+```shell script
+podman run -p 127.0.0.1:4317:4317 -p 127.0.0.1:55679:55679 otel/opentelemetry-collector:0.89.0
+```
+
+## Deploying to openshift cluster having instana-agent running
 or deploy to a running openshift cluster:
 ```shell script
 quarkus build -Dquarkus.kubernetes.deploy=true -Dquarkus.kubernetes-client.trust-certs=true
