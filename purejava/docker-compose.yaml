@@ -1,0 +1,48 @@
+
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pg-db
+    environment:
+      POSTGRES_DB: demo
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: ./app
+    container_name: java-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: demo
+      DB_USER: demo
+      DB_PASSWORD: demo
+
+      # Elenco città (separate da virgola)
+      CITIES: "Milan,Paris,Berlin,New%20York,Tokyo"
+
+      # opzionale: controlla la finestra temporale oraria importata (oggi + past_days)
+      PAST_DAYS: "1"     # include 1 giorno passato nella serie oraria; vedi docs Forecast API [1](https://open-meteo.com/en/docs)
+      TIMEZONE: "Europe/Rome" # o "auto"
+
+      # (opzionale) endpoint/protocollo OTLP se invii a Collector esterno
+      # OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
+      # OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    command: ["java", "-javaagent:/opt/app/opentelemetry-javaagent.jar", "-Dotel.service.name=miademo", "-jar", "/opt/app/app.jar"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
