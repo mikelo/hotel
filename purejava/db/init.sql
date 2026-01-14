@@ -19,5 +19,11 @@ CREATE TABLE IF NOT EXISTS city_temperature (
   inserted_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_city_temperature_city_ts ON city_temperature(city_id, ts);
+CREATE INDEX IF NOT EXISTS idx_city_temperature_city_ts
+  ON city_temperature(city_id, ts, inserted_at DESC);
+
+-- 🔒 Impedisci duplicati della stessa lettura
+CREATE UNIQUE INDEX IF NOT EXISTS uq_city_temperature_ci_ts
+  ON city_temperature(city_id, ts, inserted_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_city_name ON city(name);

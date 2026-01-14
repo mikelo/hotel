@@ -7,8 +7,14 @@ import java.sql.*;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import org.json.*;
+
+
+// ... imports esistenti ...
+import java.util.concurrent.*;
 
 public class App {
 
@@ -26,8 +32,9 @@ public class App {
                                     .map(String::trim).filter(s -> !s.isEmpty())
                                     .collect(Collectors.toList());
 
-        int pastDays = Integer.parseInt(env("PAST_DAYS", "0")); // include giorni passati nella serie oraria
+        int pastDays = Integer.parseInt(env("PAST_DAYS", "0"));
         String timezone = env("TIMEZONE", "auto");
+        int pollSeconds = Integer.parseInt(env("POLL_SECONDS", "5"));
 
         String jdbcUrl = "jdbc:postgresql://" + dbHost + ":" + dbPort + "/" + dbName;
         Class.forName("org.postgresql.Driver");
@@ -35,38 +42,139 @@ public class App {
         try (Connection conn = connectWithRetry(jdbcUrl, dbUser, dbPass, 30, 2000)) {
             ensureSchema(conn);
 
-            Map<String, City> cityMap = new HashMap<>();
-
-            // Geocoding + upsert city
+            // Geocode & upsert delle città
+            List<City> cityList = new ArrayList<>();
             for (String name : cities) {
+                // url encode name
                 City c = geocodeCity(name);
                 if (c == null) {
                     System.out.printf("No geocoding result for '%s'%n", name);
                     continue;
                 }
-                int cityId = upsertCity(conn, c);
-                c.id = cityId;
-                cityMap.put(name, c);
+                c.id = upsertCity(conn, c);
+                cityList.add(c);
                 System.out.printf("City '%s' -> id=%d, lat=%.4f lon=%.4f (%s)%n",
                         c.name, c.id, c.latitude, c.longitude, c.country);
             }
 
-            // Per ogni città: fetch current + hourly, insert in city_temperature
-            for (City c : cityMap.values()) {
+            // Primo caricamento: current + hourly (opzionale)
+            for (City c : cityList) {
                 WeatherData wd = fetchCurrentAndHourly(c.latitude, c.longitude, pastDays, timezone);
-                int inserted = insertWeather(conn, c.id, wd);
-                System.out.printf("Inserted %d temperature rows for %s%n", inserted, c.name);
+                int inserted = insertWeather(conn, c.id, wd);  // usa ON CONFLICT DO NOTHING internamente
+                System.out.printf("Inserted %d rows for %s (bootstrap)%n", inserted, c.name);
             }
 
-            // Esempio SELECT: top 5 città per temperatura corrente
-            runTopCurrentTemperatures(conn);
+            // ✅ SCHEDULER: aggiorna la temperatura corrente ogni N secondi
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                scheduler.shutdown();
+                try { scheduler.awaitTermination(3, TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
+            }));
 
-            // Esempio UPDATE: marca la misura più recente come current=true, e flagga misure orarie calde
-            runUpdates(conn);
+            // Jitter iniziale fino a 2 secondi per non colpire l'API in sincrono
+            long initialJitterMs = ThreadLocalRandom.current().nextLong(0, 2000);
+
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    // Apri una connessione dedicata ad ogni ciclo per evitare stale connections
+                    try (Connection loopConn = DriverManager.getConnection(jdbcUrl, dbUser, dbPass)) {
+                        loopConn.setAutoCommit(false);
+
+                        int totalUpserts = 0;
+                        for (City c : cityList) {
+                            // Scarica SOLO current weather (più leggero, ogni N secondi)
+                            CurrentWeather cw = fetchCurrentTemp(c.latitude, c.longitude, timezone);
+                            if (cw != null && cw.timeIso != null) {
+                                // upsert (ON CONFLICT DO NOTHING protegge dai duplicati)
+                                totalUpserts += insertCurrent(loopConn, c.id, cw);
+                            }
+                        }
+
+                        // Marca la più recente come current=true
+                        markLatestCurrent(loopConn);
+
+                        loopConn.commit();
+                        System.out.printf("[%s] Upserts=%d%n", Instant.now(), totalUpserts);
+                    }
+                } catch (Exception e) {
+                    System.err.printf("Polling error: %s%n", e.getMessage());
+                }
+            }, initialJitterMs, pollSeconds * 1000L, TimeUnit.MILLISECONDS);
+
+            // Mantieni viva l'app finché il container resta su
+            // (In un'app reale potresti esporre un HTTP health endpoint)
+            Thread.currentThread().join();
         }
     }
 
-    /* ---------- utils and JDBC ---------- */
+    /* ---------- new: fetch current only ---------- */
+
+    static class CurrentWeather {
+        String timeIso;
+        double tempC;
+    }
+
+    static CurrentWeather fetchCurrentTemp(double lat, double lon, String timezone) throws Exception {
+        String url = String.format(Locale.ROOT,
+            "https://api.open-meteo.com/v1/forecast?latitude=%.5f&longitude=%.5f&current_weather=true&timezone=%s",
+            lat, lon, timezone);
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .header("Accept", "application/json").GET().build();
+        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            System.out.printf("Current API failed (%d)%n", resp.statusCode());
+            return null;
+        }
+        // org.json
+        JSONObject json = new JSONObject(resp.body());
+        if (!json.has("current_weather")) return null;
+        JSONObject cw = json.getJSONObject("current_weather");
+        CurrentWeather out = new CurrentWeather();
+        out.timeIso = cw.getString("time");
+        out.tempC = cw.getDouble("temperature");
+        return out;
+    }
+
+    /* ---------- inserts: use ON CONFLICT ---------- */
+
+    static int insertCurrent(Connection conn, int cityId, CurrentWeather cw) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("""
+            INSERT INTO city_temperature(city_id, ts, temperature_c, source, current)
+            VALUES (?, ?, ?, 'open-meteo', true)
+            ON CONFLICT (city_id, ts) DO NOTHING
+        """)) {
+            ps.setInt(1, cityId);
+            ps.setTimestamp(2, Timestamp.from(Instant.parse(toUtcInstant(cw.timeIso))));
+            ps.setDouble(3, cw.tempC);
+            return ps.executeUpdate(); // 1 se inserito, 0 se già presente
+        }
+    }
+
+    static void markLatestCurrent(Connection conn) throws SQLException {
+        String sql = """
+            WITH latest AS (
+              SELECT city_id, MAX(ts) AS max_ts
+              FROM city_temperature
+              GROUP BY city_id
+            )
+            UPDATE city_temperature ct
+            SET current = (ct.ts = latest.max_ts)
+            FROM latest
+            WHERE ct.city_id = latest.city_id
+        """;
+        try (Statement st = conn.createStatement()) {
+            st.executeUpdate(sql);
+        } catch (SQLException e) {
+            conn.rollback();
+            System.err.println(e);
+        } finally {
+            conn.setAutoCommit(true);
+        }    
+    }
+
+    // ... resto dei metodi già definiti (env, connectWithRetry, ensureSchema,
+    // geocodeCity, fetchCurrentAndHourly, insertWeather, toUtcInstant, runTopCurrentTemperatures, runUpdates, data classes) ...
+    //     /* ---------- utils and JDBC ---------- */
 
     static String env(String k, String def) {
         String v = System.getenv(k);
@@ -116,6 +224,11 @@ public class App {
                 CREATE INDEX IF NOT EXISTS idx_city_temperature_city_ts ON city_temperature(city_id, ts);
                 CREATE INDEX IF NOT EXISTS idx_city_name ON city(name);
             """);
+        } catch (SQLException e) {
+            conn.rollback();
+            System.err.println(e);
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 
@@ -124,7 +237,7 @@ public class App {
     // Geocoding API: https://open-meteo.com/en/docs/geocoding-api
     static City geocodeCity(String name) throws Exception {
         String url = "https://geocoding-api.open-meteo.com/v1/search?name="
-                + name + "&count=1&language=en";
+                + urlEncode(name) + "&count=1&language=en";
         System.out.println("Geocoding URL: " + url);
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .header("Accept", "application/json").GET().build();
@@ -208,8 +321,14 @@ public class App {
             try (ResultSet rs = ins.executeQuery()) {
                 rs.next(); return rs.getInt(1);
             }
+            } catch (SQLException e) {
+                conn.rollback();
+                System.err.println(e);
+            } finally {
+                conn.setAutoCommit(true);
+                return -1;
+            }
         }
-    }
 
     static int insertWeather(Connection conn, int cityId, WeatherData wd) throws SQLException {
         int count = 0;
@@ -252,7 +371,7 @@ public class App {
             conn.commit();
         } catch (SQLException ex) {
             conn.rollback();
-            throw ex;
+            System.err.println(ex);
         } finally {
             conn.setAutoCommit(true);
         }
@@ -325,11 +444,18 @@ public class App {
             System.out.printf("Updated 'current' markers: %d, flagged hot hourly rows: %d%n", a, b);
         } catch (SQLException e) {
             conn.rollback();
-            throw e;
+            System.err.println(e);
         } finally {
             conn.setAutoCommit(true);
         }
     }
+
+
+    private static String urlEncode(String s) {
+        if (s == null) return "";
+        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
 
     /* ---------- simple data holders ---------- */
     static class City {

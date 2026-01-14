@@ -21,28 +21,50 @@ services:
 
   app:
     build: ./app
-    container_name: java-app
     depends_on:
       db:
         condition: service_healthy
+      jaeger:
+        condition: service_started
+    container_name: demo
     environment:
+      # --- DB & app settings (immutati) ---
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: demo
       DB_USER: demo
       DB_PASSWORD: demo
+      CITIES: "Milan,Paris,Berlin,New York,Tokyo"
+      PAST_DAYS: "1"
+      TIMEZONE: "Europe/Rome"
+      POLL_SECONDS: "5"
 
-      # Elenco città (separate da virgola)
-      CITIES: "Milan,Paris,Berlin,New%20York,Tokyo"
+      # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
+      OTEL_SERVICE_NAME: "demo"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"   # gRPC default 4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 
-      # opzionale: controlla la finestra temporale oraria importata (oggi + past_days)
-      PAST_DAYS: "1"     # include 1 giorno passato nella serie oraria; vedi docs Forecast API [1](https://open-meteo.com/en/docs)
-      TIMEZONE: "Europe/Rome" # o "auto"
+      # In alternativa HTTP/protobuf:
+      # OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://jaeger:4318/v1/traces"  # HTTP default 4318
 
-      # (opzionale) endpoint/protocollo OTLP se invii a Collector esterno
-      # OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
-      # OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-    command: ["java", "-javaagent:/opt/app/opentelemetry-javaagent.jar", "-Dotel.service.name=miademo", "-jar", "/opt/app/app.jar"]
+    entrypoint: ["java",
+      "-javaagent:/opt/app/opentelemetry-javaagent.jar",
+      "-Dotel.service.name=demo",
+      "-jar", "/opt/app/app.jar"]
+    # ports:
+    #   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
+    #   - "4318:4318"
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.0
+    container_name: jaeger
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC ingest
+      - "4318:4318"    # OTLP HTTP ingest
+      # porte aggiuntive (Zipkin, agent) se ti servono:
+      # - "5778:5778"
+      # - "9411:9411"
+
+    # All-in-one usa storage in-memory per demo
