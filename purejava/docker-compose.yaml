@@ -48,6 +48,9 @@ services:
       # OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://jaeger:4318/v1/traces"  # HTTP default 4318
 
+# https://opentelemetry.io/docs/zero-code/java/agent/getting-started/
+# Aggiunge il Java agent OpenTelemetry al comando di avvio dell'app Java
+
     entrypoint: ["java",
       "-javaagent:/opt/app/opentelemetry-javaagent.jar",
       "-Dotel.service.name=demo",
