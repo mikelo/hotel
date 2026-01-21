@@ -1,0 +1,16 @@
+com.instana.plugin.ebpf:
+  enabled: false
+# com.instana.plugin.process:
+#   processes:
+#     - 'node'
+# com.instana.plugin.nodejs:
+#   span-batching-enabled: true
+
+# Esempio stile OpenTelemetry Collector
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
