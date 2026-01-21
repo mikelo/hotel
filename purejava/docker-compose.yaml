@@ -2,8 +2,6 @@ services:
   db:
     image: postgres:16-alpine
     container_name: pg-db
-    pid: "container:collector"
-    networks: "container:collector"
     environment:
       POSTGRES_DB: demo
       POSTGRES_USER: demo
@@ -19,7 +17,7 @@ services:
       retries: 20
 
   app:
-    build: ./app
+    build: ./build
     depends_on:
       db:
         condition: service_healthy
