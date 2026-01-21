@@ -1,0 +1,69 @@
+services:
+  app:
+    build:
+      context: /home/michele/git/hotel/purejava/app
+    container_name: demo
+    depends_on:
+      db:
+        condition: service_healthy
+      instana-agent:
+        condition: service_started
+    entrypoint:
+    - java
+    - -javaagent:/opt/app/opentelemetry-javaagent.jar
+    - -Dotel.service.name=michele
+    - -jar
+    - /opt/app/app.jar
+    environment:
+      CITIES: Milan,Paris,Berlin,New York,Tokyo
+      DB_HOST: db
+      DB_NAME: demo
+      DB_PASSWORD: demo
+      DB_PORT: 5432
+      DB_USER: demo
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: michele
+      PAST_DAYS: '1'
+      POLL_SECONDS: '5'
+      TIMEZONE: Europe/Rome
+  db:
+    container_name: pg-db
+    environment:
+      POSTGRES_DB: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_USER: demo
+    healthcheck:
+      interval: 5s
+      retries: 20
+      test:
+      - CMD-SHELL
+      - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+      timeout: 5s
+    image: postgres:16-alpine
+    ports:
+    - 5432:5432
+    volumes:
+    - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
+  instana-agent:
+    container_name: agent
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      INSTANA_AGENT_ENDPOINT: ingress-orange-saas.instana.io
+      INSTANA_AGENT_ENDPOINT_PORT: '443'
+      INSTANA_AGENT_KEY: xxxxxxxxxxx
+      INSTANA_AUTO_PROFILE: 'true'
+      INSTANA_DOWNLOAD_KEY: xxxxxxxxxxx
+    hostname: michele
+    image: icr.io/instana/agent
+    network_mode: service:app
+    pid: container:app
+    profiles:
+    - agent
+    volumes:
+    - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
+    - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
+version: '3.9'
+
