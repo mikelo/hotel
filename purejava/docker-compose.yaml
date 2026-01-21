@@ -1,6 +1,3 @@
-
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,8 +6,8 @@ services:
       POSTGRES_DB: demo
       POSTGRES_USER: demo
       POSTGRES_PASSWORD: demo
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
     healthcheck:
@@ -20,13 +17,17 @@ services:
       retries: 20
 
   app:
-    build: ./app
+    build: ./build
     depends_on:
       db:
         condition: service_healthy
-      jaeger:
-        condition: service_started
-    container_name: demo
+      # jaeger:
+      #   condition: service_started
+      # instana-agent:
+      #   condition: service_started
+    container_name: app
+    network_mode: "container:collector"
+    pid: "container:collector"
     environment:
       # --- DB & app settings (immutati) ---
       DB_HOST: db
@@ -40,8 +41,8 @@ services:
       POLL_SECONDS: "5"
 
       # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
-      OTEL_SERVICE_NAME: "demo"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"   # gRPC default 4317
+      OTEL_SERVICE_NAME: "michele"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 
       # In alternativa HTTP/protobuf:
@@ -51,23 +52,44 @@ services:
 # https://opentelemetry.io/docs/zero-code/java/agent/getting-started/
 # Aggiunge il Java agent OpenTelemetry al comando di avvio dell'app Java
 
-    entrypoint: ["java",
-      "-javaagent:/opt/app/opentelemetry-javaagent.jar",
-      "-Dotel.service.name=demo",
-      "-jar", "/opt/app/app.jar"]
+    entrypoint:
+      - "java"
+      - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
+      - "-Dotel.service.name=michele"
+      - "-jar"
+      - "/opt/app/app.jar"
     # ports:
     #   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
     #   - "4318:4318"
-
-  jaeger:
-    image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.0
-    container_name: jaeger
-    ports:
-      - "16686:16686"  # UI
-      - "4317:4317"    # OTLP gRPC ingest
-      - "4318:4318"    # OTLP HTTP ingest
-      # porte aggiuntive (Zipkin, agent) se ti servono:
-      # - "5778:5778"
-      # - "9411:9411"
+  # jaeger:
+  #   profiles:
+  #     - jaeger
+  #   image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.0
+  #   container_name: collector
+  #   ports:
+  #     - "16686:16686"  # UI
+  #     - "4317:4317"    # OTLP gRPC ingest
+  #     - "4318:4318"    # OTLP HTTP ingest
+  #     # porte aggiuntive (Zipkin, agent) se ti servono:
+  #     # - "5778:5778"
+  #     # - "9411:9411"
 
     # All-in-one usa storage in-memory per demo
+
+  instana-agent:
+    # profiles:
+    #   - agent
+    image: icr.io/instana/agent
+    # network_mode: "container:app"
+    # pid: "container:app"
+    container_name: collector
+    hostname: michele
+    environment:
+      - INSTANA_AGENT_ENDPOINT=ingress-orange-saas.instana.io
+      - INSTANA_AGENT_ENDPOINT_PORT=443
+      - INSTANA_AGENT_KEY=xxxxxxxxxxx
+      - INSTANA_DOWNLOAD_KEY=xxxxxxxxxxx
+      - INSTANA_AUTO_PROFILE=true
+    volumes:
+      - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
+      - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
