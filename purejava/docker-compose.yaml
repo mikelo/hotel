@@ -40,14 +40,14 @@ services:
       TIMEZONE: "Europe/Rome"
       POLL_SECONDS: "5"
 
-      # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
+# --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
       OTEL_SERVICE_NAME: "michele"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 
-      # In alternativa HTTP/protobuf:
-      # OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
-      # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://jaeger:4318/v1/traces"  # HTTP default 4318
+# In alternativa HTTP/protobuf:
+# OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+# OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://jaeger:4318/v1/traces"
 
 # https://opentelemetry.io/docs/zero-code/java/agent/getting-started/
 # Aggiunge il Java agent OpenTelemetry al comando di avvio dell'app Java
@@ -58,9 +58,9 @@ services:
       - "-Dotel.service.name=michele"
       - "-jar"
       - "/opt/app/app.jar"
-    # ports:
-    #   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
-    #   - "4318:4318"
+# ports:
+#   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
+#   - "4318:4318"
   # jaeger:
   #   profiles:
   #     - jaeger
@@ -84,7 +84,12 @@ services:
     # pid: "container:app"
     container_name: collector
     hostname: michele
-
+    environment:
+      - INSTANA_AGENT_ENDPOINT=${INSTANA_AGENT_ENDPOINT}
+      - INSTANA_AGENT_ENDPOINT_PORT=${INSTANA_AGENT_ENDPOINT_PORT}
+      - INSTANA_AGENT_KEY=${INSTANA_AGENT_KEY}
+      - INSTANA_DOWNLOAD_KEY=${INSTANA_DOWNLOAD_KEY}
+      - INSTANA_AUTO_PROFILE=${INSTANA_AUTO_PROFILE}
     volumes:
       - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
       - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
