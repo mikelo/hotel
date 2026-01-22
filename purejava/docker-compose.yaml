@@ -84,12 +84,7 @@ services:
     # pid: "container:app"
     container_name: collector
     hostname: michele
-    environment:
-      - INSTANA_AGENT_ENDPOINT=ingress-orange-saas.instana.io
-      - INSTANA_AGENT_ENDPOINT_PORT=443
-      - INSTANA_AGENT_KEY=xxxxxxxxxxx
-      - INSTANA_DOWNLOAD_KEY=xxxxxxxxxxx
-      - INSTANA_AUTO_PROFILE=true
+
     volumes:
       - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
       - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
