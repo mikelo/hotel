@@ -56,6 +56,7 @@ services:
       - "java"
       - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
       - "-Dotel.service.name=michele"
+      - "-Dotel.instrumentation.jdbc.experimental.transaction.enabled=true"
       - "-jar"
       - "/opt/app/app.jar"
 # ports:
@@ -90,6 +91,8 @@ services:
       - INSTANA_AGENT_KEY=${INSTANA_AGENT_KEY}
       - INSTANA_DOWNLOAD_KEY=${INSTANA_DOWNLOAD_KEY}
       - INSTANA_AUTO_PROFILE=${INSTANA_AUTO_PROFILE}
+      - INSTANA_AGENT_ZONE=${INSTANA_AGENT_ZONE}
+      - OTEL_TRACES_EXPORTER=zipkin
     volumes:
       - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
       - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
