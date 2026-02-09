@@ -23,7 +23,7 @@ import java.time.ZoneId;
 
 public class App {
 
-    @Span(value = "custom-tcp-server")
+    @Span(value = "main", type = "app")
     public static void main(String[] args) throws Exception {
         // @Span(type = Span.type.ENTRY, value = "custom-tcp-server")
         String dbHost = getEnv("DB_HOST", "localhost");

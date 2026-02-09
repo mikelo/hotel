@@ -57,7 +57,7 @@ services:
 
     entrypoint:
       - "java"
-      - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
+      # - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
       - "-jar"
       - "/opt/app/app.jar"
 # ports:
