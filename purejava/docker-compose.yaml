@@ -1,7 +1,9 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: pg-db
+    container_name: postgres
+    network_mode: "host"
+    pid: "host"
     environment:
       POSTGRES_DB: demo
       POSTGRES_USER: demo
@@ -27,11 +29,11 @@ services:
       #   condition: service_started
 
     container_name: app
-    network_mode: "container:collector"
-    pid: "container:collector"
+    network_mode: "host"
+    pid: "host"
     environment:
       # --- DB & app settings (immutati) ---
-      DB_HOST: db
+      DB_HOST: localhost
       DB_PORT: 5432
       DB_NAME: demo
       DB_USER: demo
@@ -77,8 +79,8 @@ services:
     # All-in-one usa storage in-memory per demo
 
   instana-agent:
-    # profiles:
-    #   - agent
+    profiles:
+      - agent
     image: icr.io/instana/agent
     # network_mode: "container:app"
     # pid: "container:app"
