@@ -14,3 +14,13 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+
+# Java Tracing
+com.instana.plugin.javatrace:
+  instrumentation:
+    # By default no packages are scanned for SDK annotations.
+    sdk:
+      packages:
+        - 'com.example'
+        # - 'com.mycompany.frontend'
+ 

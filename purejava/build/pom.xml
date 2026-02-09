@@ -31,12 +31,38 @@
       <version>5.9</version>
     </dependency>
 
-    <dependency>
-        <groupId>org.json</groupId>
-        <artifactId>json</artifactId>
-        <version>20240303</version>
-    </dependency>
+  <!-- OpenTelemetry API + SDK -->
+  <dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-api</artifactId>
+    <version>1.35.0</version>
+  </dependency>
+  <dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-sdk</artifactId>
+    <version>1.35.0</version>
+  </dependency>
 
+  <!-- OTLP exporter (gRPC 4317). Per HTTP/4318 vedi nota nel codice -->
+  <dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-exporter-otlp</artifactId>
+    <version>1.35.0</version>
+  </dependency>
+
+  <!-- org.json che già usi -->
+  <dependency>
+    <groupId>org.json</groupId>
+    <artifactId>json</artifactId>
+    <version>20240303</version>
+  </dependency>
+
+    <dependency>
+    <groupId>com.instana</groupId>
+    <artifactId>instana-java-sdk</artifactId>
+    <version>1.2.0</version>
+    </dependency>
+ 
     <!-- (Facoltativo) Log semplificato -->
     <dependency>
       <groupId>org.slf4j</groupId>

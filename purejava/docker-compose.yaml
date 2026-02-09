@@ -21,10 +21,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # collector:
+      #   condition: service_started
       # jaeger:
       #   condition: service_started
-      # instana-agent:
-      #   condition: service_started
+
     container_name: app
     network_mode: "container:collector"
     pid: "container:collector"
@@ -41,7 +42,7 @@ services:
       POLL_SECONDS: "5"
 
 # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
-      OTEL_SERVICE_NAME: "michele"
+      OTEL_SERVICE_NAME: "custom"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 
@@ -55,7 +56,6 @@ services:
     entrypoint:
       - "java"
       - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
-      - "-Dotel.service.name=michele"
       - "-jar"
       - "/opt/app/app.jar"
 # ports:
@@ -90,6 +90,16 @@ services:
       - INSTANA_AGENT_KEY=${INSTANA_AGENT_KEY}
       - INSTANA_DOWNLOAD_KEY=${INSTANA_DOWNLOAD_KEY}
       - INSTANA_AUTO_PROFILE=${INSTANA_AUTO_PROFILE}
+      - INSTANA_AGENT_ZONE=${INSTANA_AGENT_ZONE}
+      - OTEL_TRACES_EXPORTER=zipkin
     volumes:
       - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
       - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
+
+    healthcheck:
+
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/4317'"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
