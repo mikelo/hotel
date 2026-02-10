@@ -1,7 +1,7 @@
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: pg-db
+    container_name: postgres
     environment:
       POSTGRES_DB: demo
       POSTGRES_USER: demo
@@ -19,7 +19,7 @@ services:
   app:
     build: ./build
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       # collector:
       #   condition: service_started
@@ -27,11 +27,11 @@ services:
       #   condition: service_started
 
     container_name: app
-    network_mode: "container:collector"
-    pid: "container:collector"
+    # network_mode: "container:collector"
+    # pid: "container:collector"
     environment:
       # --- DB & app settings (immutati) ---
-      DB_HOST: db
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: demo
       DB_USER: demo
@@ -42,9 +42,10 @@ services:
       POLL_SECONDS: "5"
 
 # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
-      OTEL_SERVICE_NAME: "custom"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_SERVICE_NAME: "otel-java-demo-app"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}   # gRPC default 4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
+      OTEL_EXPORTER_OTLP_INSECURE: true  # "grpc" o "http/protobuf"
 
 # In alternativa HTTP/protobuf:
 # OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
@@ -56,8 +57,14 @@ services:
     entrypoint:
       - "java"
       - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
+      # - "-Dotel.javaagent.debug=true"
+      # - "-Dotel.javaagent.experimental.span-batching.enabled=true"
+      # - "-Dotel.exporters.otlp.tls.insecure_skip_verify=true"
+      # - "-Dotel.experimental.config.file=/opt/app/otel.yaml"
       - "-jar"
       - "/opt/app/app.jar"
+    volumes:
+      - ./otel.yaml:/opt/app/otel.yaml:Z
 # ports:
 #   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
 #   - "4318:4318"
@@ -77,8 +84,8 @@ services:
     # All-in-one usa storage in-memory per demo
 
   instana-agent:
-    # profiles:
-    #   - agent
+    profiles:
+      - agent
     image: icr.io/instana/agent
     # network_mode: "container:app"
     # pid: "container:app"

@@ -1,0 +1,6 @@
+exporters:
+   otlp:
+     endpoint: https://otlp-grpc.rocky3.dev.fyre.ibm.com:443
+     tls:
+       insecure: false
+       insecure_skip_verify: true

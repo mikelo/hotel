@@ -45,7 +45,7 @@ public class App {
 
     public static void main(String[] args) throws Exception {
         Span startup = tracer.spanBuilder("app.startup")
-                .setSpanKind(SpanKind.INTERNAL)
+                .setSpanKind(SpanKind.SERVER)
                 .startSpan();
         try (Scope s = startup.makeCurrent()) {
 
@@ -77,14 +77,14 @@ public class App {
                     public void run() {
                         // span del ciclo di polling
                         Span poll = tracer.spanBuilder("poll.cycle")
-                                .setSpanKind(SpanKind.INTERNAL)
+                                .setSpanKind(SpanKind.SERVER)
                                 .setAttribute("poll.interval.seconds", pollSeconds)
                                 .startSpan();
                         try (Scope ps = poll.makeCurrent()) {
                             for (String cityRaw : cities) {
                                 String city = cityRaw.trim();
                                 Span spanCity = tracer.spanBuilder("poll.city")
-                                        .setSpanKind(SpanKind.INTERNAL)
+                                        .setSpanKind(SpanKind.SERVER)
                                         .setAttribute("city.name", city)
                                         .startSpan();
                                 try (Scope cs = spanCity.makeCurrent()) {
@@ -126,7 +126,7 @@ public class App {
 
     private static JSONObject fetchCurrentWeather(String city) throws Exception {
         Span span = tracer.spanBuilder("fetchCurrentWeather")
-                .setSpanKind(SpanKind.INTERNAL)
+                .setSpanKind(SpanKind.SERVER)
                 .setAttribute("city.name", city)
                 .startSpan();
         try (Scope s = span.makeCurrent()) {
