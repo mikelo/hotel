@@ -44,9 +44,9 @@ services:
       POLL_SECONDS: "5"
 
 # --- OpenTelemetry: invia direttamente a Jaeger all-in-one via OTLP gRPC ---
-      OTEL_SERVICE_NAME: "custom"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      # OTEL_SERVICE_NAME: "custom"
+      # OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"   # gRPC default 4317
+      # OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
 
 # In alternativa HTTP/protobuf:
 # OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
@@ -84,6 +84,8 @@ services:
     image: icr.io/instana/agent
     # network_mode: "container:app"
     # pid: "container:app"
+    network_mode: "host"
+    pid: "host"
     container_name: collector
     hostname: michele
     environment:
@@ -97,6 +99,7 @@ services:
     volumes:
       - ./configuration.custom.yaml:/opt/instana/agent/etc/instana/configuration.custom.yaml:Z
       - ./custom.cfg:/opt/instana/agent/etc/instana/custom.cfg:Z
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z
 
     healthcheck:
 

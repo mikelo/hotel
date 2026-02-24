@@ -22,11 +22,11 @@ import java.time.ZoneId;
 
 
 public class App {
-    private static final String SPAN_WEATHER = "fetch-weather";
-    private static final String SPAN_MAIN = "main";
+
 
     @Span(type = Span.Type.ENTRY, value = "main")
     public static void main(String[] args) throws Exception {
+        String methodName = Thread.currentThread().getStackTrace()[1].getMethodName();
         String dbHost = getEnv("DB_HOST", "localhost");
         String dbPort = getEnv("DB_PORT", "5432");
         String dbName = getEnv("DB_NAME", "demo");
@@ -60,7 +60,7 @@ public class App {
 
                 } catch (Exception e) {
                     e.printStackTrace();
-                    SpanSupport.annotate(Span.Type.ENTRY, SPAN_MAIN, "tags.error", "Error fetching/inserting weather: " + e.getMessage());
+                    SpanSupport.annotate(Span.Type.ENTRY, methodName, "tags.error", "Error fetching/inserting weather: " + e.getMessage());
                 }
             }
         }, 0, pollSeconds, TimeUnit.SECONDS);
@@ -71,7 +71,7 @@ public class App {
         return (v == null || v.trim().isEmpty()) ? def : v.trim();
     }
 
-    @Span(type = Span.Type.ENTRY, value = SPAN_WEATHER)
+    @Span(type = Span.Type.ENTRY, value = "fetchCurrentWeather")
     private static JSONObject fetchCurrentWeather(String city) throws Exception {
         String encodedCity = java.net.URLEncoder.encode(city, "UTF-8");
         String urlStr = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodedCity + "&count=1";
@@ -85,10 +85,10 @@ public class App {
 
 
         String forecastUrl = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true";
-        SpanSupport.annotate(Span.Type.ENTRY, SPAN_WEATHER, "tags.http.method", "GET");
-        SpanSupport.annotate(Span.Type.ENTRY, SPAN_WEATHER, "tags.city", city);
-        SpanSupport.annotate(Span.Type.ENTRY, SPAN_WEATHER, "tags.lat", String.valueOf(lat));
-        SpanSupport.annotate(Span.Type.ENTRY, SPAN_WEATHER, "tags.lon", String.valueOf(lon));
+        SpanSupport.annotate(Span.Type.ENTRY, "fetchCurrentWeather", "tags.http.method", "GET");
+        SpanSupport.annotate(Span.Type.ENTRY, "fetchCurrentWeather", "tags.city", city);
+        SpanSupport.annotate(Span.Type.ENTRY, "fetchCurrentWeather", "tags.lat", String.valueOf(lat));
+        SpanSupport.annotate(Span.Type.ENTRY, "fetchCurrentWeather", "tags.lon", String.valueOf(lon));
 
         JSONObject forecast = new JSONObject(httpGet(forecastUrl));
         forecast.put("timezone", timezone);
@@ -96,7 +96,7 @@ public class App {
         // return forecast.has("current_weather") ? forecast.getJSONObject("current_weather") : null;
     }
 
-    @Span(type = Span.Type.ENTRY, value = "http-get-weather")
+    @Span(type = Span.Type.ENTRY, value = "httpGet")
     private static String httpGet(String urlStr) throws Exception {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -119,7 +119,7 @@ public class App {
         st.close();
     }
 
-    @Span(type = Span.Type.ENTRY, value = "insert-weather")
+    @Span(type = Span.Type.ENTRY, value = "insertCurrent")
     private static void insertCurrent(Connection conn, String city, JSONObject current) throws SQLException {
         PreparedStatement ps = conn.prepareStatement("INSERT INTO city_temperature(city, ts, temperature_c) VALUES (?, ?, ?)");
         ps.setString(1, city);
