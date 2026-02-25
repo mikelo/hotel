@@ -16,11 +16,38 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 # Java Tracing
+# https://www.ibm.com/docs/en/iofgs?topic=references-configuration-based-java-trace-sdk
 com.instana.plugin.javatrace:
   instrumentation:
-    # By default no packages are scanned for SDK annotations.
     sdk:
-      packages:
-        - 'com.example'
-        # - 'com.mycompany.frontend'
- 
+      targets:
+        - match:
+            type: class
+            name: com.example.App
+            method: main
+          span:
+            name: Job
+            type: ENTRY
+            stackDepth: 20
+            tags:
+              - kind: constant
+                name: endpoint
+                value: BatchJob
+              - kind: argument
+                name: batch.job
+                index: 0
+        - match:
+            type: class
+            name: com.example.App
+            method: insertCurrent
+          span:
+            name: DatabaseCall
+            type: EXIT
+            stackDepth: 2
+            tags:
+              - kind: constant
+                name: db.connection_string
+                value: jdbc:postgresql://localhost:5432/demo
+              - kind: argument
+                name: db.statement
+                index: 0

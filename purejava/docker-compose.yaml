@@ -59,7 +59,7 @@ services:
       - "java"
       # - "-javaagent:/opt/app/opentelemetry-javaagent.jar"
       - "-jar"
-      - "/opt/app/app.jar"
+      - "/workspace/target/app.jar"
 # ports:
 #   - "4317:4317"   # (solo se vuoi esporre dall'app; non necessario per Jaeger)
 #   - "4318:4318"
