@@ -7,14 +7,15 @@ com.instana.plugin.ebpf:
 #   span-batching-enabled: true
 
 # Esempio stile OpenTelemetry Collector
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-
+# receivers:
+#   otlp:
+#     protocols:
+#       grpc:
+#         endpoint: 0.0.0.0:4317
+#       http:
+#         endpoint: 0.0.0.0:4318
+com.instana.plugin.opentelemetry:
+  enabled: false
 # Java Tracing
 # https://www.ibm.com/docs/en/iofgs?topic=references-configuration-based-java-trace-sdk
 com.instana.plugin.javatrace:
